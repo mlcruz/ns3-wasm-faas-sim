@@ -20,8 +20,8 @@
  *
  */
 
-#ifndef UDP_SERVER_H
-#define UDP_SERVER_H
+#ifndef CUSTOM_APP_H
+#define CUSTOM_APP_H
 
 #include "ns3/application.h"
 #include "ns3/event-id.h"
@@ -45,7 +45,7 @@ namespace ns3 {
  * stamp in their payloads. The application uses the sequence number
  * to determine if a packet is lost, and the time stamp to compute the delay.
  */
-class UdpServer : public Application
+class CustomApp : public Application
 {
 public:
   /**
@@ -53,8 +53,8 @@ public:
    * \return the object TypeId
    */
   static TypeId GetTypeId (void);
-  UdpServer ();
-  virtual ~UdpServer ();
+  CustomApp ();
+  virtual ~CustomApp ();
   /**
    * \brief Returns the number of lost packets
    * \return the number of lost packets
@@ -112,4 +112,4 @@ private:
 
 } // namespace ns3
 
-#endif /* UDP_SERVER_H */
+#endif /* CUSTOM_APP_H */
