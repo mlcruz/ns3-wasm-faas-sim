@@ -29,10 +29,11 @@
 #include "ns3/socket-factory.h"
 #include "ns3/packet.h"
 #include "ns3/uinteger.h"
-#include "packet-loss-counter.h"
+#include "ns3/packet-loss-counter.h"
 
-#include "seq-ts-header.h"
+#include "ns3/seq-ts-header.h"
 #include "custom-app.h"
+#include "libwasmfaas.h"
 
 namespace ns3 {
 
@@ -117,7 +118,8 @@ void
 CustomApp::StartApplication (void)
 {
   NS_LOG_FUNCTION (this);
-
+  u_int64_t runtime_id = initialize_runtime ();
+  NS_LOG_INFO ("foobar: " << runtime_id);
   if (m_socket == 0)
     {
       TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");

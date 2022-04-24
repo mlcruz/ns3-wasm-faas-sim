@@ -28,16 +28,17 @@
 #include "ns3/ptr.h"
 #include "ns3/address.h"
 #include "ns3/traced-callback.h"
-#include "packet-loss-counter.h"
+#include "ns3/packet-loss-counter.h"
+#include "libwasmfaas.h"
 
 namespace ns3 {
 /**
  * \ingroup applications
- * \defgroup udpclientserver UdpClientServer
+ * \defgroup customapp CustomApp
  */
 
 /**
- * \ingroup udpclientserver
+ * \ingroup customapp
  *
  * \brief A UDP server, receives UDP packets from a remote host.
  *

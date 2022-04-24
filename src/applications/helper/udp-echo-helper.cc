@@ -31,10 +31,8 @@ UdpEchoServerHelper::UdpEchoServerHelper (uint16_t port)
   SetAttribute ("Port", UintegerValue (port));
 }
 
-void 
-UdpEchoServerHelper::SetAttribute (
-  std::string name, 
-  const AttributeValue &value)
+void
+UdpEchoServerHelper::SetAttribute (std::string name, const AttributeValue &value)
 {
   m_factory.Set (name, value);
 }
@@ -86,10 +84,8 @@ UdpEchoClientHelper::UdpEchoClientHelper (Address address)
   SetAttribute ("RemoteAddress", AddressValue (address));
 }
 
-void 
-UdpEchoClientHelper::SetAttribute (
-  std::string name, 
-  const AttributeValue &value)
+void
+UdpEchoClientHelper::SetAttribute (std::string name, const AttributeValue &value)
 {
   m_factory.Set (name, value);
 }
@@ -97,19 +93,20 @@ UdpEchoClientHelper::SetAttribute (
 void
 UdpEchoClientHelper::SetFill (Ptr<Application> app, std::string fill)
 {
-  app->GetObject<UdpEchoClient>()->SetFill (fill);
+  app->GetObject<UdpEchoClient> ()->SetFill (fill);
 }
 
 void
 UdpEchoClientHelper::SetFill (Ptr<Application> app, uint8_t fill, uint32_t dataLength)
 {
-  app->GetObject<UdpEchoClient>()->SetFill (fill, dataLength);
+  app->GetObject<UdpEchoClient> ()->SetFill (fill, dataLength);
 }
 
 void
-UdpEchoClientHelper::SetFill (Ptr<Application> app, uint8_t *fill, uint32_t fillLength, uint32_t dataLength)
+UdpEchoClientHelper::SetFill (Ptr<Application> app, uint8_t *fill, uint32_t fillLength,
+                              uint32_t dataLength)
 {
-  app->GetObject<UdpEchoClient>()->SetFill (fill, fillLength, dataLength);
+  app->GetObject<UdpEchoClient> ()->SetFill (fill, fillLength, dataLength);
 }
 
 ApplicationContainer
