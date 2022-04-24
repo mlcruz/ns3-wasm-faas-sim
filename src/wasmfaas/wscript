@@ -6,8 +6,8 @@ def build(bld):
     module.includes = '.'
 
     module.source = [
-        'model/custom-app.cc',
-        'helper/custom-app-helper.cc'
+       'model/custom-app.cc',
+       'helper/custom-app-helper.cc'
     ]
 
     headers = bld(features='ns3header')

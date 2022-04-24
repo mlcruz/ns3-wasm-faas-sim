@@ -4,6 +4,9 @@
 #include <ostream>
 #include <new>
 
+#ifndef LIBWASMFAAS_H
+#define LIBWASMFAAS_H
+
 enum class ArgType {
   /// Signed 32 bit integer.
   I32,
@@ -26,32 +29,34 @@ enum class StaticModuleList {
   WasmSum,
 };
 
-struct WasmArg {
+struct WasmArg
+{
   const char *value;
   ArgType arg_type;
 };
 
-struct WasmFunction {
+struct WasmFunction
+{
   const char *name;
   WasmArg args[2];
 };
 
 extern "C" {
 
-uint64_t initialize_runtime();
+uint64_t initialize_runtime ();
 
-char *get_static_module_data(StaticModuleList module);
+char *get_static_module_data (StaticModuleList module);
 
-const char *get_runtime_module_base64_data(uint64_t runtime_id, StaticModuleList module);
+const char *get_runtime_module_base64_data (uint64_t runtime_id, StaticModuleList module);
 
-const char *register_module(uint64_t runtime_id,
-                            const char *module_name,
-                            const char *module_data_base_64);
+const char *register_module (uint64_t runtime_id, const char *module_name,
+                             const char *module_data_base_64);
 
-void free_ffi_string(char *data);
+void free_ffi_string (char *data);
 
-bool is_module_registered(uint64_t runtime_id, StaticModuleList module);
+bool is_module_registered (uint64_t runtime_id, StaticModuleList module);
 
-int32_t execute_module(uint64_t runtime_id, const char *module_name, WasmFunction function);
+int32_t execute_module (uint64_t runtime_id, const char *module_name, WasmFunction function);
 
 } // extern "C"
+#endif /* CUSTOM_APP_H */

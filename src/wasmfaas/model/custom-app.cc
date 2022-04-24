@@ -72,6 +72,7 @@ CustomApp::CustomApp () : m_lossCounter (0)
 {
   NS_LOG_FUNCTION (this);
   m_received = 0;
+  m_runtime_id = 0;
 }
 
 CustomApp::~CustomApp ()
@@ -118,8 +119,8 @@ void
 CustomApp::StartApplication (void)
 {
   NS_LOG_FUNCTION (this);
-  u_int64_t runtime_id = initialize_runtime ();
-  NS_LOG_INFO ("foobar: " << runtime_id);
+  m_runtime_id = initialize_runtime ();
+  NS_LOG_INFO ("runtime id: " << m_runtime_id);
   if (m_socket == 0)
     {
       TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
