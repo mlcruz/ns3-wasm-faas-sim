@@ -81,12 +81,18 @@ main (int argc, char *argv[])
       idx++;
     }
 
-  std::cout << "[Main] " << std::endl;
-  auto firstNode = nodes.Get (0)->GetApplication (0)->GetObject<CustomApp> ();
-  firstNode->RegisterWasmModule ((char *) "sum", sumWasmBase64);
-  firstNode->RegisterWasmModule ((char *) "div", divWasmBase64);
-  firstNode->RegisterNode (interfaces.GetAddress (1), 3000);
+  std::cout << "[Setup] " << std::endl;
+  auto node0 = nodes.Get (0)->GetApplication (0)->GetObject<CustomApp> ();
+  node0->RegisterWasmModule ((char *) "sum", sumWasmBase64);
+  node0->RegisterWasmModule ((char *) "div", divWasmBase64);
+  node0->RegisterNode (interfaces.GetAddress (1), 3000);
 
+  auto node1 = nodes.Get (1)->GetApplication (0)->GetObject<CustomApp> ();
+  node1->RegisterNode (interfaces.GetAddress (0), 3000);
+
+  Simulator::Schedule (Seconds (2), &CustomApp::QueryPeersForModule, node0, (char *) "div");
+
+  std::cout << "[Main] " << std::endl;
   serverApps.Start (Seconds (1.0));
   serverApps.Stop (Seconds (10.0));
 

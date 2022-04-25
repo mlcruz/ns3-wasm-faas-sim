@@ -89,6 +89,8 @@ public:
 
   void RegisterNode (Ipv4Address address, uint16_t port);
 
+  InetSocketAddress QueryPeersForModule (char *name);
+
   uint64_t GetNodeId (void);
   void InitRuntime (void);
 

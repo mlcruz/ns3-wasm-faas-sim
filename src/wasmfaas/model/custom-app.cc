@@ -127,6 +127,41 @@ CustomApp::InitRuntime ()
     }
 }
 
+InetSocketAddress
+CustomApp::QueryPeersForModule (char *name)
+{
+  NS_LOG_FUNCTION (this);
+
+  for (size_t i = 0; i < m_peerAddresses.size (); i++)
+    {
+
+      auto peer = m_peerAddresses[i];
+      TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
+      auto outSocket = Socket::CreateSocket (GetNode (), tid);
+
+      if (outSocket->Bind () == -1)
+        {
+          NS_FATAL_ERROR ("Failed to bind socket");
+        }
+
+      if (outSocket->Connect ((InetSocketAddress (peer.GetIpv4 (), peer.GetPort ()))) == -1)
+        {
+          NS_FATAL_ERROR ("Failed to connect socket");
+        }
+
+      size_t len = sizeof (name);
+      uint8_t *data = new uint8_t[len + 1];
+      data[0] = '0';
+      memcpy (data + 1, name, len);
+
+      auto p = Create<Packet> (data, 4);
+      NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+                                << peer.GetIpv4 () << " " << p->GetSize ());
+      outSocket->Send (p);
+    }
+  return m_peerAddresses[0];
+}
+
 void
 CustomApp::RegisterNode (Ipv4Address address, uint16_t port)
 {
