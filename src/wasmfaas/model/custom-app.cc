@@ -76,6 +76,7 @@ CustomApp::CustomApp () : m_lossCounter (0)
   m_received = 0;
   m_runtime_id = 0;
   m_peerAddresses = std::vector<InetSocketAddress> ();
+  m_sent = 0;
 }
 
 CustomApp::~CustomApp ()
@@ -127,10 +128,46 @@ CustomApp::InitRuntime ()
     }
 }
 
-InetSocketAddress
+void
+CustomApp::QueryPeersCallback (Ptr<Socket> socket)
+{
+  NS_LOG_FUNCTION (this << socket);
+  Ptr<Packet> packet;
+  Address from;
+  Address localAddress;
+  while ((packet = socket->RecvFrom (from)))
+    {
+      socket->GetSockName (localAddress);
+      m_rxTrace (packet);
+      m_rxTraceWithAddresses (packet, from, localAddress);
+      if (packet->GetSize () > 0)
+        {
+          uint32_t receivedSize = packet->GetSize ();
+          SeqTsHeader seqTs;
+          packet->RemoveHeader (seqTs);
+          uint32_t currentSequenceNumber = seqTs.GetSeq ();
+
+          NS_LOG_INFO ("TraceDelay: RX " << receivedSize << " bytes from "
+                                         << InetSocketAddress::ConvertFrom (from).GetIpv4 ()
+                                         << " Sequence Number: " << currentSequenceNumber
+                                         << " Uid: " << packet->GetUid () << " TXtime: "
+                                         << seqTs.GetTs () << " RXtime: " << Simulator::Now ()
+                                         << " Delay: " << Simulator::Now () - seqTs.GetTs ());
+        }
+    }
+}
+
+void
 CustomApp::QueryPeersForModule (char *name)
 {
   NS_LOG_FUNCTION (this);
+
+  NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+                            << "QUERY_PEERS_INIT");
+  size_t len = sizeof (name);
+  uint8_t *data = new uint8_t[len + 1];
+  data[0] = '0';
+  memcpy (data + 1, name, len);
 
   for (size_t i = 0; i < m_peerAddresses.size (); i++)
     {
@@ -149,17 +186,15 @@ CustomApp::QueryPeersForModule (char *name)
           NS_FATAL_ERROR ("Failed to connect socket");
         }
 
-      size_t len = sizeof (name);
-      uint8_t *data = new uint8_t[len + 1];
-      data[0] = '0';
-      memcpy (data + 1, name, len);
+      auto p = Create<Packet> (data, len + 1);
 
-      auto p = Create<Packet> (data, 4);
-      NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
-                                << peer.GetIpv4 () << " " << p->GetSize ());
+      SeqTsHeader seqTs;
+      seqTs.SetSeq (m_sent);
+      p->AddHeader (seqTs);
       outSocket->Send (p);
+      m_sent++;
+      outSocket->SetRecvCallback (MakeCallback (&CustomApp::QueryPeersCallback, this));
     }
-  return m_peerAddresses[0];
 }
 
 void
@@ -234,32 +269,44 @@ CustomApp::HandleRead (Ptr<Socket> socket)
       m_rxTraceWithAddresses (packet, from, localAddress);
       if (packet->GetSize () > 0)
         {
-          uint32_t receivedSize = packet->GetSize ();
+          //   uint32_t receivedSize = packet->GetSize ();
           SeqTsHeader seqTs;
           packet->RemoveHeader (seqTs);
-          uint32_t currentSequenceNumber = seqTs.GetSeq ();
-          if (InetSocketAddress::IsMatchingType (from))
-            {
-              NS_LOG_INFO ("TraceDelay: RX " << receivedSize << " bytes from "
-                                             << InetSocketAddress::ConvertFrom (from).GetIpv4 ()
-                                             << " Sequence Number: " << currentSequenceNumber
-                                             << " Uid: " << packet->GetUid () << " TXtime: "
-                                             << seqTs.GetTs () << " RXtime: " << Simulator::Now ()
-                                             << " Delay: " << Simulator::Now () - seqTs.GetTs ());
-            }
-          else if (Inet6SocketAddress::IsMatchingType (from))
-            {
-              NS_LOG_INFO ("TraceDelay: RX " << receivedSize << " bytes from "
-                                             << Inet6SocketAddress::ConvertFrom (from).GetIpv6 ()
-                                             << " Sequence Number: " << currentSequenceNumber
-                                             << " Uid: " << packet->GetUid () << " TXtime: "
-                                             << seqTs.GetTs () << " RXtime: " << Simulator::Now ()
-                                             << " Delay: " << Simulator::Now () - seqTs.GetTs ());
-            }
+          // uint32_t currentSequenceNumber = seqTs.GetSeq ();
 
-          m_lossCounter.NotifyReceived (currentSequenceNumber);
-          m_received++;
+          HandlePeerPacket (packet);
+          // NS_LOG_INFO ("TraceDelay: RX " << receivedSize << " bytes from "
+          //                                << InetSocketAddress::ConvertFrom (from).GetIpv4 ()
+          //                                << " Sequence Number: " << currentSequenceNumber
+          //                                << " Uid: " << packet->GetUid () << " TXtime: "
+          //                                << seqTs.GetTs () << " RXtime: " << Simulator::Now ()
+          //                                << " Delay: " << Simulator::Now () - seqTs.GetTs ());
         }
+    }
+}
+
+void
+CustomApp::HandlePeerPacket (Ptr<Packet> packet)
+{
+  NS_LOG_FUNCTION (this);
+
+  u_int8_t *data = new u_int8_t[packet->GetSize () - 1];
+  packet->CopyData (data, packet->GetSize () - 1);
+
+  switch ((char) data[0])
+    {
+      case '0': {
+
+        NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+                                  << "RECEIVE_PACKET_PEER_MODULE_QUERY"
+                                  << " " << data + 1);
+
+        break;
+      }
+      break;
+
+    default:
+      break;
     }
 }
 

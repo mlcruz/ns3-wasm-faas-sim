@@ -89,7 +89,7 @@ public:
 
   void RegisterNode (Ipv4Address address, uint16_t port);
 
-  InetSocketAddress QueryPeersForModule (char *name);
+  void QueryPeersForModule (char *name);
 
   uint64_t GetNodeId (void);
   void InitRuntime (void);
@@ -109,10 +109,18 @@ private:
    * \param socket the socket the packet was received to.
    */
   void HandleRead (Ptr<Socket> socket);
+  void QueryPeersCallback (Ptr<Socket> socket);
+  void HandlePeerPacket (Ptr<Packet> packet);
+  void
+  resolveTag (char c)
+  {
+  }
 
   uint16_t m_port; //!< Port on which we listen for incoming packets.
-  Ptr<Socket> m_socket; //!< IPv4 Socket
+  Ptr<Socket> m_socket; //!< IPv4 Soscket
   uint64_t m_received; //!< Number of received packets
+  uint64_t m_sent; //!< Number of sent packets
+
   PacketLossCounter m_lossCounter; //!< Lost packet counter
   u_int64_t m_runtime_id;
 
