@@ -83,15 +83,24 @@ main (int argc, char *argv[])
 
   std::cout << "[Setup] " << std::endl;
   auto node0 = nodes.Get (0)->GetApplication (0)->GetObject<CustomApp> ();
-  node0->RegisterWasmModule ((char *) "sum", sumWasmBase64);
   node0->RegisterNode (interfaces.GetAddress (1), 3000);
 
   auto node1 = nodes.Get (1)->GetApplication (0)->GetObject<CustomApp> ();
   node1->RegisterNode (interfaces.GetAddress (0), 3000);
+  node1->RegisterWasmModule ((char *) "sum", sumWasmBase64);
   node1->RegisterWasmModule ((char *) "div", divWasmBase64);
 
   Simulator::Schedule (Seconds (3), &CustomApp::ExecuteModule, node0, (char *) "div",
                        (char *) "div", 10, 10);
+
+  Simulator::Schedule (Seconds (4), &CustomApp::ExecuteModule, node0, (char *) "sum",
+                       (char *) "sum", 100, 100);
+
+  Simulator::Schedule (Seconds (5), &CustomApp::ExecuteModule, node0, (char *) "div",
+                       (char *) "div", 100, 5);
+
+  Simulator::Schedule (Seconds (6), &CustomApp::ExecuteModule, node0, (char *) "sum",
+                       (char *) "sum", 100, 100);
 
   std::cout << "[Main] " << std::endl;
   serverApps.Start (Seconds (1.0));

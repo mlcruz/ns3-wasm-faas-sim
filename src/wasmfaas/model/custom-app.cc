@@ -216,11 +216,15 @@ CustomApp::QueryPeersCallback (Ptr<Socket> socket)
                                         << InetSocketAddress::ConvertFrom (from).GetIpv4 () << " "
                                         << tokens[1] << " " << s.size ());
 
-              register_module (m_runtime_id, tokens[1].c_str (), tokens[2].c_str ());
+              if (!is_module_registered (m_runtime_id, tokens[1].c_str ()))
+                {
+                  register_module (m_runtime_id, tokens[1].c_str (), tokens[2].c_str ());
 
-              NS_LOG_INFO (m_runtime_id
-                           << " " << Simulator::Now ().GetNanoSeconds () << " REGISTERED MODULE "
-                           << InetSocketAddress::ConvertFrom (from).GetIpv4 () << " " << tokens[1]);
+                  NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds ()
+                                            << " REGISTERED MODULE "
+                                            << InetSocketAddress::ConvertFrom (from).GetIpv4 ()
+                                            << " " << tokens[1]);
+                }
             }
         }
     }
