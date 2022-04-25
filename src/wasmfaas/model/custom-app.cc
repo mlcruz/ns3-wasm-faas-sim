@@ -154,8 +154,8 @@ CustomApp::QueryPeersCallback (Ptr<Socket> socket)
           if (strData[0] == 'r')
             {
 
-              NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
-                                        << "RECEIVED_PACKET_EXECUTE_MODULE_RESULT"
+              NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds ()
+                                        << " RECEIVED_PACKET_EXECUTE_MODULE_RESULT  "
                                         << InetSocketAddress::ConvertFrom (from).GetIpv4 () << " "
                                         << strData);
 
@@ -193,6 +193,34 @@ CustomApp::QueryPeersCallback (Ptr<Socket> socket)
               p->AddHeader (seqTs);
               socket->SendTo (p, 0, from);
               m_sent++;
+            }
+          else if (strData[0] == 'c')
+            {
+              auto s = std::string ((char *) strData);
+
+              std::vector<std::string> tokens;
+              size_t startPos = 0;
+              size_t endPos = 0;
+              std::string token;
+              while ((endPos = s.find (";", startPos)) != std::string::npos)
+                {
+                  token = s.substr (startPos, endPos - startPos);
+                  tokens.push_back (token);
+                  startPos = endPos + 1;
+                }
+
+              tokens.push_back (s.substr (startPos));
+
+              NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds ()
+                                        << " RECEIVED_PACKET_MODULE_LOAD_RESULT "
+                                        << InetSocketAddress::ConvertFrom (from).GetIpv4 () << " "
+                                        << tokens[1] << " " << s.size ());
+
+              register_module (m_runtime_id, tokens[1].c_str (), tokens[2].c_str ());
+
+              NS_LOG_INFO (m_runtime_id
+                           << " " << Simulator::Now ().GetNanoSeconds () << " REGISTERED MODULE "
+                           << InetSocketAddress::ConvertFrom (from).GetIpv4 () << " " << tokens[1]);
             }
         }
     }
@@ -398,13 +426,43 @@ CustomApp::HandlePeerPacket (Ptr<Packet> packet)
   NS_LOG_FUNCTION (this);
 
   auto packetSize = packet->GetSize ();
-  u_int8_t *data = new u_int8_t[packetSize - 1];
-  packet->CopyData (data, packetSize - 1);
+  u_int8_t *data = new u_int8_t[packetSize];
+  packet->CopyData (data, packetSize);
 
   std::vector<std::string> tokens;
   switch ((char) data[0])
     {
       // execute module handler
+      case 'l': {
+        NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+                                  << "RECEIVED_PACKET_MODULE_LOAD_REQUEST"
+                                  << " " << data);
+
+        auto moduleName = std::string ((char *) data + 2);
+        moduleName.pop_back ();
+
+        auto base64_data = get_runtime_module_base64_data (m_runtime_id, moduleName.c_str ());
+
+        auto respStr = std::string ("c;");
+        respStr.append (moduleName);
+        respStr.append (";");
+        respStr.append (base64_data);
+        respStr.append (";");
+        free_ffi_string ((char *) base64_data);
+
+        NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+                                  << "SEND_PACKET_MODULE_LOAD_RESPONSE"
+                                  << " " << moduleName << " " << respStr.size ());
+
+        auto resp = Create<Packet> ((uint8_t *) respStr.c_str (), respStr.size ());
+
+        SeqTsHeader seqTs;
+        seqTs.SetSeq (m_sent);
+        resp->AddHeader (seqTs);
+        return resp;
+
+        break;
+      }
       case 'e': {
         NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
                                   << "RECEIVED_PACKET_EXECUTE_MODULE_REQUEST"
