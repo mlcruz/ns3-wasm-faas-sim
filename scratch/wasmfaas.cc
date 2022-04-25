@@ -39,6 +39,9 @@ main (int argc, char *argv[])
   CommandLine cmd (__FILE__);
   cmd.Parse (argc, argv);
 
+  auto sumWasmBase64 = get_static_module_data (StaticModuleList::WasmSum);
+  auto divWasmBase64 = get_static_module_data (StaticModuleList::WasmDiv);
+
   Time::SetResolution (Time::NS);
   LogComponentEnable ("CustomApp", LOG_LEVEL_INFO);
   LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_INFO);
@@ -62,18 +65,39 @@ main (int argc, char *argv[])
   Ipv4InterfaceContainer interfaces = address.Assign (devices);
 
   CustomAppHelper wasmFaasHelper = CustomAppHelper (3000);
-  ApplicationContainer serverApps = wasmFaasHelper.Install (nodes.Get (1));
+  ApplicationContainer serverApps = wasmFaasHelper.Install (nodes);
+
+  auto idx = 0;
+  std::cout << "[NodeIps] " << std::endl;
+  for (auto i = nodes.Begin (); i != nodes.End (); ++i)
+    {
+      auto node = (*i);
+      auto wasmRuntime = node->GetApplication (0)->GetObject<CustomApp> ();
+      wasmRuntime->InitRuntime ();
+
+      auto id = wasmRuntime->GetNodeId ();
+      std::cout << id << " " << interfaces.GetAddress (idx) << std::endl;
+
+      idx++;
+    }
+
+  std::cout << "[Main] " << std::endl;
+  auto firstNode = nodes.Get (0)->GetApplication (0)->GetObject<CustomApp> ();
+  firstNode->RegisterWasmModule ((char *) "sum", sumWasmBase64);
+  firstNode->RegisterWasmModule ((char *) "div", divWasmBase64);
+  firstNode->RegisterNode (interfaces.GetAddress (1), 3000);
+
   serverApps.Start (Seconds (1.0));
   serverApps.Stop (Seconds (10.0));
 
-  UdpEchoClientHelper echoClient (interfaces.GetAddress (1), 3000);
-  echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
-  echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
-  echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
+  //   UdpEchoClientHelper echoClient (interfaces.GetAddress (1), 3000);
+  //   echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
+  //   echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
+  //   echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
 
-  ApplicationContainer clientApps = echoClient.Install (nodes.Get (0));
-  clientApps.Start (Seconds (2.0));
-  clientApps.Stop (Seconds (10.0));
+  //   ApplicationContainer clientApps = echoClient.Install (nodes.Get (0));
+  //   clientApps.Start (Seconds (2.0));
+  //   clientApps.Stop (Seconds (10.0));
 
   Simulator::Run ();
   Simulator::Destroy ();

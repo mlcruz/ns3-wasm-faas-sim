@@ -26,6 +26,7 @@
 #include "ns3/object-factory.h"
 #include "ns3/ipv4-address.h"
 #include "ns3/ipv6-address.h"
+#include "ns3/libwasmfaas.h"
 
 namespace ns3 {
 

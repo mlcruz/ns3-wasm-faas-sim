@@ -21,6 +21,7 @@
 #include "ns3/custom-app.h"
 #include "ns3/uinteger.h"
 #include "ns3/names.h"
+#include "ns3/libwasmfaas.h"
 
 namespace ns3 {
 

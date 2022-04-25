@@ -23,12 +23,15 @@
 #ifndef CUSTOM_APP_H
 #define CUSTOM_APP_H
 
+#include <vector>
+
 #include "ns3/application.h"
 #include "ns3/event-id.h"
 #include "ns3/ptr.h"
 #include "ns3/address.h"
 #include "ns3/traced-callback.h"
 #include "ns3/packet-loss-counter.h"
+#include "ns3/inet-socket-address.h"
 #include "libwasmfaas.h"
 
 namespace ns3 {
@@ -82,6 +85,13 @@ public:
    */
   void SetPacketWindowSize (uint16_t size);
 
+  void RegisterWasmModule (char *name, char *base64_data);
+
+  void RegisterNode (Ipv4Address address, uint16_t port);
+
+  uint64_t GetNodeId (void);
+  void InitRuntime (void);
+
 protected:
   virtual void DoDispose (void);
 
@@ -100,10 +110,11 @@ private:
 
   uint16_t m_port; //!< Port on which we listen for incoming packets.
   Ptr<Socket> m_socket; //!< IPv4 Socket
-  Ptr<Socket> m_socket6; //!< IPv6 Socket
   uint64_t m_received; //!< Number of received packets
   PacketLossCounter m_lossCounter; //!< Lost packet counter
   u_int64_t m_runtime_id;
+
+  std::vector<InetSocketAddress> m_peerAddresses; //!< Remote peer address
 
   /// Callbacks for tracing the packet Rx events
   TracedCallback<Ptr<const Packet>> m_rxTrace;

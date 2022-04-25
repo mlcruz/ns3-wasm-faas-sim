@@ -19,6 +19,8 @@
  *                      <amine.ismail@udcast.com>
  */
 
+#include <vector>
+
 #include "ns3/log.h"
 #include "ns3/ipv4-address.h"
 #include "ns3/nstime.h"
@@ -73,6 +75,7 @@ CustomApp::CustomApp () : m_lossCounter (0)
   NS_LOG_FUNCTION (this);
   m_received = 0;
   m_runtime_id = 0;
+  m_peerAddresses = std::vector<InetSocketAddress> ();
 }
 
 CustomApp::~CustomApp ()
@@ -116,11 +119,36 @@ CustomApp::DoDispose (void)
 }
 
 void
+CustomApp::InitRuntime ()
+{
+  if (m_runtime_id == 0)
+    {
+      m_runtime_id = initialize_runtime ();
+    }
+}
+
+void
+CustomApp::RegisterNode (Ipv4Address address, uint16_t port)
+{
+  NS_LOG_FUNCTION (this);
+
+  m_peerAddresses.push_back (InetSocketAddress (address, port));
+
+  NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+                            << "REGISTER_NODE " << address << ":" << port);
+}
+
+uint64_t
+CustomApp::GetNodeId (void)
+{
+  return m_runtime_id;
+}
+void
 CustomApp::StartApplication (void)
 {
   NS_LOG_FUNCTION (this);
-  m_runtime_id = initialize_runtime ();
-  NS_LOG_INFO ("runtime id: " << m_runtime_id);
+
+  InitRuntime ();
   if (m_socket == 0)
     {
       TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
@@ -133,19 +161,6 @@ CustomApp::StartApplication (void)
     }
 
   m_socket->SetRecvCallback (MakeCallback (&CustomApp::HandleRead, this));
-
-  if (m_socket6 == 0)
-    {
-      TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
-      m_socket6 = Socket::CreateSocket (GetNode (), tid);
-      Inet6SocketAddress local = Inet6SocketAddress (Ipv6Address::GetAny (), m_port);
-      if (m_socket6->Bind (local) == -1)
-        {
-          NS_FATAL_ERROR ("Failed to bind socket");
-        }
-    }
-
-  m_socket6->SetRecvCallback (MakeCallback (&CustomApp::HandleRead, this));
 }
 
 void
@@ -157,6 +172,17 @@ CustomApp::StopApplication ()
     {
       m_socket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket>> ());
     }
+}
+
+void
+CustomApp::RegisterWasmModule (char *name, char *data_base64)
+{
+  NS_LOG_FUNCTION (this);
+  InitRuntime ();
+
+  NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+                            << "REGISTER_MODULE " << name);
+  register_module (m_runtime_id, name, data_base64);
 }
 
 void

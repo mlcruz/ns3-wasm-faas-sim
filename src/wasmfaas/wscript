@@ -20,6 +20,6 @@ def build(bld):
 
 
 def configure(conf):
-    lib_to_check = 'libwasmfaas.so'
-    conf.env.append_value("LINKFLAGS", ["-Lcommon"])
+    print("Installing libwasmfaas")
+    shutil.copyfile("common/libwasmfaas.so", '/usr/lib/libwasmfaas.so')
     conf.env.append_value("LIB", ["wasmfaas"])  
