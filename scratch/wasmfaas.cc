@@ -90,9 +90,8 @@ main (int argc, char *argv[])
   node1->RegisterNode (interfaces.GetAddress (0), 3000);
   node1->RegisterWasmModule ((char *) "div", divWasmBase64);
 
-  Simulator::Schedule (Seconds (2), &CustomApp::QueryPeersForModule, node0, (char *) "div");
-  Simulator::Schedule (Seconds (3), &CustomApp::ExecuteModule, node0, (char *) "sum",
-                       (char *) "sum", 10, 10);
+  Simulator::Schedule (Seconds (3), &CustomApp::ExecuteModule, node0, (char *) "div",
+                       (char *) "div", 10, 10);
 
   std::cout << "[Main] " << std::endl;
   serverApps.Start (Seconds (1.0));

@@ -91,7 +91,7 @@ public:
 
   int32_t ExecuteModule (char *module_name, char *func_name, int32_t arg1, int32_t arg2);
 
-  void QueryPeersForModule (char *name);
+  void QueryPeersForModule (char *name, WasmFunction func);
 
   uint64_t GetNodeId (void);
   void InitRuntime (void);
