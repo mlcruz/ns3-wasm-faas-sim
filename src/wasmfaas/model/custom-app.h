@@ -89,6 +89,8 @@ public:
 
   void RegisterNode (Ipv4Address address, uint16_t port);
 
+  int32_t ExecuteModule (char *module_name, char *func_name, int32_t arg1, int32_t arg2);
+
   void QueryPeersForModule (char *name);
 
   uint64_t GetNodeId (void);
@@ -110,7 +112,7 @@ private:
    */
   void HandleRead (Ptr<Socket> socket);
   void QueryPeersCallback (Ptr<Socket> socket);
-  void HandlePeerPacket (Ptr<Packet> packet);
+  Ptr<Packet> HandlePeerPacket (Ptr<Packet> packet);
   void
   resolveTag (char c)
   {
