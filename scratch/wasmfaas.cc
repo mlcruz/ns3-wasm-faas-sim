@@ -87,6 +87,7 @@ main (int argc, char *argv[])
 
   auto node1 = nodes.Get (1)->GetApplication (0)->GetObject<CustomApp> ();
   node1->RegisterNode (interfaces.GetAddress (0), 3000);
+
   node1->RegisterWasmModule ((char *) "sum", sumWasmBase64);
   node1->RegisterWasmModule ((char *) "div", divWasmBase64);
 
@@ -105,15 +106,6 @@ main (int argc, char *argv[])
   std::cout << "[Main] " << std::endl;
   serverApps.Start (Seconds (1.0));
   serverApps.Stop (Seconds (10.0));
-
-  //   UdpEchoClientHelper echoClient (interfaces.GetAddress (1), 3000);
-  //   echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
-  //   echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
-  //   echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
-
-  //   ApplicationContainer clientApps = echoClient.Install (nodes.Get (0));
-  //   clientApps.Start (Seconds (2.0));
-  //   clientApps.Stop (Seconds (10.0));
 
   Simulator::Run ();
   Simulator::Destroy ();
