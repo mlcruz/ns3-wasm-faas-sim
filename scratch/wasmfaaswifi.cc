@@ -198,17 +198,19 @@ main (int argc, char *argv[])
       idx++;
     }
 
-  Simulator::Schedule (Seconds (3), &CustomApp::ExecuteModule, wifiApNodeServer, (char *) "div",
+  auto wifiNode0 = wifiMobileNodes.Get (0)->GetApplication (0)->GetObject<CustomApp> ();
+
+  Simulator::Schedule (Seconds (2), &CustomApp::ExecuteModule, wifiNode0, (char *) "div",
                        (char *) "div", 10, 10);
 
-  Simulator::Schedule (Seconds (4), &CustomApp::ExecuteModule, wifiApNodeServer, (char *) "sum",
-                       (char *) "sum", 100, 100);
+  // Simulator::Schedule (Seconds (4), &CustomApp::ExecuteModule, wifiApNodeServer, (char *) "sum",
+  //                      (char *) "sum", 100, 100);
 
-  Simulator::Schedule (Seconds (5), &CustomApp::ExecuteModule, wifiApNodeServer, (char *) "div",
-                       (char *) "div", 100, 5);
+  // Simulator::Schedule (Seconds (5), &CustomApp::ExecuteModule, wifiApNodeServer, (char *) "div",
+  //                      (char *) "div", 100, 5);
 
-  Simulator::Schedule (Seconds (6), &CustomApp::ExecuteModule, wifiApNodeServer, (char *) "sum",
-                       (char *) "sum", 100, 100);
+  // Simulator::Schedule (Seconds (6), &CustomApp::ExecuteModule, wifiApNodeServer, (char *) "sum",
+  //                      (char *) "sum", 100, 100);
 
   std::cout << "[Main] " << std::endl;
   serverApps.Start (Seconds (1.0));

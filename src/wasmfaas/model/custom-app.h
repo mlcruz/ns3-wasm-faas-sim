@@ -24,6 +24,7 @@
 #define CUSTOM_APP_H
 
 #include <vector>
+#include <unordered_set>
 
 #include "ns3/application.h"
 #include "ns3/event-id.h"
@@ -97,7 +98,7 @@ public:
 
   int32_t ExecuteModule (char *module_name, char *func_name, int32_t arg1, int32_t arg2);
 
-  void QueryPeersForModule (char *name, WasmFunction func);
+  void QueryPeersForModule (char *name);
 
   uint64_t GetNodeId (void);
   void InitRuntime (void);
@@ -131,6 +132,11 @@ private:
 
   PacketLossCounter m_lossCounter; //!< Lost packet counter
   u_int64_t m_runtime_id;
+  u_int8_t m_is_querying_peers_idx;
+  bool m_is_querying_peers;
+  std::vector<InetSocketAddress> m_peers_queried;
+  std::string m_query_peers_func_name;
+  std::vector<int32_t> m_query_peers_func_args;
 
   std::vector<InetSocketAddress> m_peerAddresses; //!< Remote peer address
 

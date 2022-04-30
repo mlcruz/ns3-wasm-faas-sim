@@ -20,6 +20,8 @@
  */
 
 #include <vector>
+#include <unordered_set>
+#include <algorithm>
 
 #include "ns3/log.h"
 #include "ns3/ipv4-address.h"
@@ -77,6 +79,9 @@ CustomApp::CustomApp () : m_lossCounter (0)
   m_runtime_id = 0;
   m_peerAddresses = std::vector<InetSocketAddress> ();
   m_sent = 0;
+  m_is_querying_peers_idx = 0; // 0 initial state, 1 querying state
+
+  m_peers_queried = std::vector<InetSocketAddress> ();
 }
 
 CustomApp::~CustomApp ()
@@ -140,6 +145,7 @@ CustomApp::QueryPeersCallback (Ptr<Socket> socket)
       socket->GetSockName (localAddress);
       m_rxTrace (packet);
       m_rxTraceWithAddresses (packet, from, localAddress);
+
       if (packet->GetSize () > 0)
         {
           SeqTsHeader seqTs;
@@ -148,6 +154,10 @@ CustomApp::QueryPeersCallback (Ptr<Socket> socket)
           auto packetSize = packet->GetSize ();
           u_int8_t *data = new u_int8_t[packetSize];
           packet->CopyData (data, packetSize);
+
+          // m_peers_queried.erase (std::remove (m_peers_queried.begin (), m_peers_queried.end (),
+          //                                     InetSocketAddress::ConvertFrom (from)),
+          //                        m_peers_queried.end ());
 
           const char *strData = (char *) data;
 
@@ -226,28 +236,40 @@ CustomApp::QueryPeersCallback (Ptr<Socket> socket)
                                             << " " << tokens[1]);
                 }
             }
+          else if (strData[0] == 'n')
+            {
+              m_is_querying_peers = false;
+            }
         }
     }
 }
 
 void
-CustomApp::QueryPeersForModule (char *name, WasmFunction func)
+CustomApp::QueryPeersForModule (char *name)
 {
   NS_LOG_FUNCTION (this);
+  if (m_is_querying_peers)
+    {
+      Simulator::Schedule (MilliSeconds (5), &CustomApp::QueryPeersForModule, this, name);
+      return;
+    }
+
+  m_is_querying_peers = true;
 
   NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
-                            << "INIT_QUERY_PEERS_FOR_MODULE " << name);
+                            << "INIT_QUERY_PEERS_FOR_MODULE " << name << " "
+                            << " ");
 
   std::string s;
   s.append ("e")
       .append (";")
       .append (name)
       .append (";")
-      .append (func.name)
+      .append (m_query_peers_func_name)
       .append (";")
-      .append (func.args[0].value)
+      .append (std::to_string (m_query_peers_func_args[0]))
       .append (";")
-      .append (func.args[1].value)
+      .append (std::to_string (m_query_peers_func_args[1]))
       .append (";");
 
   const char *c_str = s.c_str ();
@@ -257,36 +279,44 @@ CustomApp::QueryPeersForModule (char *name, WasmFunction func)
   uint8_t *data = new uint8_t[len];
   memcpy (data, c_str, len);
 
-  for (size_t i = 0; i < m_peerAddresses.size (); i++)
+  if (m_is_querying_peers_idx >= m_peerAddresses.size ())
     {
-      auto peer = m_peerAddresses[i];
-      TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
-      auto outSocket = Socket::CreateSocket (GetNode (), tid);
-
-      if (outSocket->Bind () == -1)
-        {
-          NS_FATAL_ERROR ("Failed to bind socket");
-        }
-
-      if (outSocket->Connect ((InetSocketAddress (peer.GetIpv4 (), peer.GetPort ()))) == -1)
-        {
-          NS_FATAL_ERROR ("Failed to connect socket");
-        }
-
-      auto p = Create<Packet> (data, len);
-
-      SeqTsHeader seqTs;
-      seqTs.SetSeq (m_sent);
-      p->AddHeader (seqTs);
-
-      NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
-                                << "SEND_PACKET_EXECUTE_MODULE_REQUEST "
-                                << InetSocketAddress::ConvertFrom (peer).GetIpv4 () << " " << data);
-      outSocket->Send (p);
-      m_sent++;
-
-      outSocket->SetRecvCallback (MakeCallback (&CustomApp::QueryPeersCallback, this));
+      m_is_querying_peers = false;
+      m_is_querying_peers_idx = 0;
+      return;
     }
+
+  auto peer = m_peerAddresses[m_is_querying_peers_idx];
+  TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
+  auto outSocket = Socket::CreateSocket (GetNode (), tid);
+
+  if (outSocket->Bind () == -1)
+    {
+      NS_FATAL_ERROR ("Failed to bind socket");
+    }
+
+  if (outSocket->Connect ((InetSocketAddress (peer.GetIpv4 (), peer.GetPort ()))) == -1)
+    {
+      NS_FATAL_ERROR ("Failed to connect socket");
+    }
+
+  auto p = Create<Packet> (data, len);
+
+  SeqTsHeader seqTs;
+  seqTs.SetSeq (m_sent);
+  p->AddHeader (seqTs);
+
+  NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+                            << "SEND_PACKET_EXECUTE_MODULE_REQUEST "
+                            << InetSocketAddress::ConvertFrom (peer).GetIpv4 () << " " << data);
+
+  outSocket->Send (p);
+  m_peers_queried.push_back (peer);
+  m_is_querying_peers_idx++;
+  m_sent++;
+  Simulator::Schedule (MilliSeconds (5), &CustomApp::QueryPeersForModule, this, name);
+  outSocket->SetRecvCallback (MakeCallback (&CustomApp::QueryPeersCallback, this));
+  //}
 }
 
 void
@@ -362,23 +392,29 @@ CustomApp::ExecuteModule (char *module_name, char *func_name, int32_t arg1, int3
                             << "INIT_EXECUTE_MODULE_REQUEST " << module_name << " " << func_name
                             << " " << arg1 << " " << arg2);
 
-  auto func = WasmFunction{};
-  func.name = func_name;
+  m_query_peers_func_name = std::string (func_name);
 
-  auto arg1s = std::to_string (arg1);
-  auto arg2s = std::to_string (arg2);
-
-  func.args[0] = WasmArg{
-      arg1s.c_str (),
-      ArgType::I32,
-  };
-  func.args[1] = WasmArg{
-      arg2s.c_str (),
-      ArgType::I32,
-  };
+  m_query_peers_func_args = std::vector<int32_t> (2);
+  m_query_peers_func_args[0] = arg1;
+  m_query_peers_func_args[1] = arg2;
 
   if (is_module_registered (m_runtime_id, module_name))
     {
+      auto func = WasmFunction{};
+      func.name = m_query_peers_func_name.c_str ();
+
+      auto arg1s = std::to_string (m_query_peers_func_args[0]);
+      auto arg2s = std::to_string (m_query_peers_func_args[1]);
+
+      func.args[0] = WasmArg{
+          arg1s.c_str (),
+          ArgType::I32,
+      };
+      func.args[1] = WasmArg{
+          arg2s.c_str (),
+          ArgType::I32,
+      };
+
       auto result = execute_module (m_runtime_id, module_name, func);
 
       NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
@@ -389,7 +425,7 @@ CustomApp::ExecuteModule (char *module_name, char *func_name, int32_t arg1, int3
   else
     {
 
-      QueryPeersForModule (module_name, func);
+      QueryPeersForModule (module_name);
       return 0;
     }
 }
@@ -442,7 +478,8 @@ CustomApp::HandlePeerPacket (Ptr<Packet> packet)
   std::vector<std::string> tokens;
   switch ((char) data[0])
     {
-      // execute module handler
+
+      // load module handler
       case 'l': {
         NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
                                   << "RECEIVED_PACKET_MODULE_LOAD_REQUEST"
@@ -473,6 +510,7 @@ CustomApp::HandlePeerPacket (Ptr<Packet> packet)
 
         break;
       }
+      // execute module handler
       case 'e': {
         NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
                                   << "RECEIVED_PACKET_EXECUTE_MODULE_REQUEST"
@@ -493,21 +531,20 @@ CustomApp::HandlePeerPacket (Ptr<Packet> packet)
         tokens.push_back (s.substr (startPos));
 
         bool isModuleRegistered = is_module_registered (m_runtime_id, tokens[1.0].c_str ());
+        auto func = WasmFunction{};
+        func.name = tokens[2].c_str ();
+
+        func.args[0] = WasmArg{
+            tokens[3].c_str (),
+            ArgType::I32,
+        };
+        func.args[1] = WasmArg{
+            tokens[4].c_str (),
+            ArgType::I32,
+        };
 
         if (isModuleRegistered)
           {
-
-            auto func = WasmFunction{};
-            func.name = tokens[2].c_str ();
-
-            func.args[0] = WasmArg{
-                tokens[3].c_str (),
-                ArgType::I32,
-            };
-            func.args[1] = WasmArg{
-                tokens[4].c_str (),
-                ArgType::I32,
-            };
 
             auto result = execute_module (m_runtime_id, tokens[1].c_str (), func);
 
@@ -521,7 +558,7 @@ CustomApp::HandlePeerPacket (Ptr<Packet> packet)
             auto resp_len = strlen (response_str);
 
             NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds ()
-                                      << " SENT_PACKET_EXECUTE_MODULE_RESULT " << response_str);
+                                      << " SEND_PACKET_EXECUTE_MODULE_RESULT " << response_str);
 
             auto p = Create<Packet> ((uint8_t *) response_str, resp_len);
             SeqTsHeader seqTs;
@@ -531,8 +568,30 @@ CustomApp::HandlePeerPacket (Ptr<Packet> packet)
           }
         else
           {
+            // // Module not found, query peer modules for module
+            // for (size_t i = 0; i < m_peerAddresses.size (); i++)
+            //   {
+
+            //     QueryPeersForModule ((char *) tokens[1].c_str (), func);
+            //     /* code */
+            //   }
+            auto response = std::string ("n;");
+            response.append (tokens[1]);
+            response.append (";");
+
+            auto response_str = response.c_str ();
+            auto resp_len = strlen (response_str);
+
+            auto p = Create<Packet> ((uint8_t *) response_str, resp_len);
+            SeqTsHeader seqTs;
+            seqTs.SetSeq (m_sent);
+            p->AddHeader (seqTs);
+
             NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
-                                      << "RECEIVE_PACKET_PEER_MODULE_QUERY_NOT_FOUND");
+                                      << "SENT_PACKET_PEER_MODULE_QUERY_NOT_FOUND"
+                                      << " " << response_str);
+
+            return p;
           }
         break;
       }
