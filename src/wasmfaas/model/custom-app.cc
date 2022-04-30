@@ -325,6 +325,12 @@ CustomApp::StartApplication (void)
   m_socket->SetRecvCallback (MakeCallback (&CustomApp::HandleRead, this));
 }
 
+double
+CustomApp::GetCurrentNodeXPosition (void)
+{
+  return 0.0;
+}
+
 void
 CustomApp::StopApplication ()
 {

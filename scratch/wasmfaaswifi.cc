@@ -37,12 +37,10 @@ main (int argc, char *argv[])
 {
 
   bool verbose = true;
-  uint32_t nCsma = 3;
   uint32_t nWifi = 3;
   bool tracing = false;
 
   CommandLine cmd (__FILE__);
-  cmd.AddValue ("nCsma", "Number of \"extra\" CSMA nodes/devices", nCsma);
   cmd.AddValue ("nWifi", "Number of wifi STA devices", nWifi);
   cmd.AddValue ("verbose", "Tell echo applications to log if true", verbose);
   cmd.AddValue ("tracing", "Enable pcap tracing", tracing);
@@ -126,7 +124,10 @@ main (int argc, char *argv[])
   Ipv4InterfaceContainer p2pinterfaces = address.Assign (p2pdevices);
 
   address.SetBase ("10.1.2.0", "255.255.255.0");
+
+  Ipv4InterfaceContainer apInterface = address.Assign (apDevices);
   Ipv4InterfaceContainer wifiInterfaces = address.Assign (mobileDevices);
+
   Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
   CustomAppHelper wasmFaasHelper = CustomAppHelper (3000);
@@ -148,6 +149,10 @@ main (int argc, char *argv[])
       idx++;
     }
 
+  // AP IP
+  std::cout << p2pNodes.Get (1)->GetApplication (0)->GetObject<CustomApp> ()->GetNodeId () << " "
+            << apInterface.GetAddress (0) << std::endl;
+
   idx = 0;
   for (auto i = wifiMobileNodes.Begin (); i != wifiMobileNodes.End (); ++i)
     {
@@ -163,16 +168,35 @@ main (int argc, char *argv[])
 
   std::cout << "[Setup] " << std::endl;
 
-  // Register p2p nodes with each other
   auto p2pServerNode = p2pNodes.Get (0)->GetApplication (0)->GetObject<CustomApp> ();
-  p2pServerNode->RegisterNode (p2pinterfaces.GetAddress (0), 3000);
-
   // Install apps on p2p nodes
   p2pServerNode->RegisterWasmModule ((char *) "sum", sumWasmBase64);
   p2pServerNode->RegisterWasmModule ((char *) "div", divWasmBase64);
 
   auto wifiApNodeServer = p2pNodes.Get (1)->GetApplication (0)->GetObject<CustomApp> ();
+
+  // Register p2p nodes with each other
+  p2pServerNode->RegisterNode (p2pinterfaces.GetAddress (1), 3000);
   wifiApNodeServer->RegisterNode (p2pinterfaces.GetAddress (0), 3000);
+
+  idx = 0;
+  // Register wifi nodes with each other and ap node
+  for (auto i = wifiMobileNodes.Begin (); i != wifiMobileNodes.End (); ++i)
+    {
+      auto jIdx = 0;
+      auto node = (*i);
+      auto nodeWasmRuntime = node->GetApplication (0)->GetObject<CustomApp> ();
+      nodeWasmRuntime->RegisterNode (apInterface.GetAddress (0), 3000);
+      for (auto j = wifiMobileNodes.Begin (); j != wifiMobileNodes.End (); ++j)
+        {
+          if (i != j)
+            {
+              nodeWasmRuntime->RegisterNode (wifiInterfaces.GetAddress (jIdx), 3000);
+            }
+          jIdx++;
+        }
+      idx++;
+    }
 
   Simulator::Schedule (Seconds (3), &CustomApp::ExecuteModule, wifiApNodeServer, (char *) "div",
                        (char *) "div", 10, 10);

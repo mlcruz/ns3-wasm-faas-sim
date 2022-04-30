@@ -85,6 +85,12 @@ public:
    */
   void SetPacketWindowSize (uint16_t size);
 
+  /**
+   * \brief Get Current node X and Y position according to mobility model
+   * \return Current node x position
+   */
+  double GetCurrentNodeXPosition (void);
+
   void RegisterWasmModule (char *name, char *base64_data);
 
   void RegisterNode (Ipv4Address address, uint16_t port);
