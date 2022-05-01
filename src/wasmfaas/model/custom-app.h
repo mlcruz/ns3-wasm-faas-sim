@@ -144,6 +144,8 @@ private:
   bool m_has_module_exec_result;
   int32_t m_module_exec_result;
 
+  bool m_is_waiting_for_module_load = false;
+
   std::vector<InetSocketAddress> m_peerAddresses; //!< Remote peer address
 
   /// Callbacks for tracing the packet Rx events

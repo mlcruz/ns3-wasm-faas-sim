@@ -85,6 +85,7 @@ CustomApp::CustomApp () : m_lossCounter (0)
   m_peer_module_exec_query_state = 0;
   m_has_module_exec_result = false;
   m_peers_queried = std::vector<InetSocketAddress> ();
+  m_is_waiting_for_module_load = false;
 }
 
 CustomApp::~CustomApp ()
@@ -210,6 +211,7 @@ CustomApp::QueryPeersCallback (Ptr<Socket> socket)
               m_module_exec_result = stoi (tokens[2]);
               m_is_querying_peers = false;
               m_is_querying_peers_idx = 255;
+              m_is_waiting_for_module_load = true;
 
               if (m_peer_module_exec_query_state == 1)
                 {
@@ -242,6 +244,7 @@ CustomApp::QueryPeersCallback (Ptr<Socket> socket)
               if (!is_module_registered (m_runtime_id, tokens[1].c_str ()))
                 {
                   register_module (m_runtime_id, tokens[1].c_str (), tokens[2].c_str ());
+                  m_is_waiting_for_module_load = false;
 
                   NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds ()
                                             << " REGISTERED MODULE "
@@ -471,6 +474,12 @@ CustomApp::HandleRead (Ptr<Socket> socket)
     {
       if (m_has_module_exec_result)
         {
+
+          if (m_is_waiting_for_module_load)
+            {
+              Simulator::Schedule (MilliSeconds (5), &CustomApp::HandleRead, this, socket);
+              return;
+            }
           auto response = std::string ("r;");
           response.append (m_query_peers_func_name);
           response.append (";");
