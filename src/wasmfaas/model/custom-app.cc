@@ -80,7 +80,9 @@ CustomApp::CustomApp () : m_lossCounter (0)
   m_peerAddresses = std::vector<InetSocketAddress> ();
   m_sent = 0;
   m_is_querying_peers_idx = 0; // 0 initial state, 1 querying state
-
+  m_is_querying_peers = false;
+  m_module_exec_result = 0;
+  m_is_querying_peers_for_module_exec = false;
   m_peers_queried = std::vector<InetSocketAddress> ();
 }
 
@@ -393,7 +395,6 @@ CustomApp::ExecuteModule (char *module_name, char *func_name, int32_t arg1, int3
                             << " " << arg1 << " " << arg2);
 
   m_query_peers_func_name = std::string (func_name);
-
   m_query_peers_func_args = std::vector<int32_t> (2);
   m_query_peers_func_args[0] = arg1;
   m_query_peers_func_args[1] = arg2;
@@ -437,6 +438,7 @@ CustomApp::HandleRead (Ptr<Socket> socket)
   Ptr<Packet> packet;
   Address from;
   Address localAddress;
+
   while ((packet = socket->RecvFrom (from)))
     {
       socket->GetSockName (localAddress);
@@ -531,20 +533,29 @@ CustomApp::HandlePeerPacket (Ptr<Packet> packet)
         tokens.push_back (s.substr (startPos));
 
         bool isModuleRegistered = is_module_registered (m_runtime_id, tokens[1.0].c_str ());
-        auto func = WasmFunction{};
-        func.name = tokens[2].c_str ();
-
-        func.args[0] = WasmArg{
-            tokens[3].c_str (),
-            ArgType::I32,
-        };
-        func.args[1] = WasmArg{
-            tokens[4].c_str (),
-            ArgType::I32,
-        };
+        m_query_peers_func_name = std::string (tokens[2].c_str ());
+        m_query_peers_func_args = std::vector<int32_t> (2);
+        m_query_peers_func_args[0] = std::stoi (tokens[3]);
+        m_query_peers_func_args[1] = std::stoi (tokens[4]);
 
         if (isModuleRegistered)
           {
+
+            auto func = WasmFunction{};
+
+            func.name = m_query_peers_func_name.c_str ();
+            auto arg1s = std::to_string (m_query_peers_func_args[0]);
+            auto arg2s = std::to_string (m_query_peers_func_args[1]);
+
+            func.args[0] = WasmArg{
+                arg1s.c_str (),
+                ArgType::I32,
+            };
+
+            func.args[1] = WasmArg{
+                arg2s.c_str (),
+                ArgType::I32,
+            };
 
             auto result = execute_module (m_runtime_id, tokens[1].c_str (), func);
 
@@ -568,6 +579,7 @@ CustomApp::HandlePeerPacket (Ptr<Packet> packet)
           }
         else
           {
+            QueryPeersForModule ((char *) tokens[1].c_str ());
             // // Module not found, query peer modules for module
             // for (size_t i = 0; i < m_peerAddresses.size (); i++)
             //   {

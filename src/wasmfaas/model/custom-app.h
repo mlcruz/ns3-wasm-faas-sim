@@ -134,9 +134,13 @@ private:
   u_int64_t m_runtime_id;
   u_int8_t m_is_querying_peers_idx;
   bool m_is_querying_peers;
+
   std::vector<InetSocketAddress> m_peers_queried;
   std::string m_query_peers_func_name;
   std::vector<int32_t> m_query_peers_func_args;
+
+  bool m_is_querying_peers_for_module_exec;
+  u_int32_t m_module_exec_result;
 
   std::vector<InetSocketAddress> m_peerAddresses; //!< Remote peer address
 
