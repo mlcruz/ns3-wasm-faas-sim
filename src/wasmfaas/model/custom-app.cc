@@ -82,7 +82,8 @@ CustomApp::CustomApp () : m_lossCounter (0)
   m_is_querying_peers_idx = 0; // 0 initial state, 1 querying state
   m_is_querying_peers = false;
   m_module_exec_result = 0;
-  m_is_querying_peers_for_module_exec = false;
+  m_peer_module_exec_query_state = 0;
+  m_has_module_exec_result = false;
   m_peers_queried = std::vector<InetSocketAddress> ();
 }
 
@@ -205,6 +206,16 @@ CustomApp::QueryPeersCallback (Ptr<Socket> socket)
               p->AddHeader (seqTs);
               socket->SendTo (p, 0, from);
               m_sent++;
+
+              m_module_exec_result = stoi (tokens[2]);
+              m_is_querying_peers = false;
+              m_is_querying_peers_idx = 255;
+
+              if (m_peer_module_exec_query_state == 1)
+                {
+                  m_has_module_exec_result = true;
+                  m_peer_module_exec_query_state = 2;
+                }
             }
           else if (strData[0] == 'c')
             {
@@ -285,6 +296,12 @@ CustomApp::QueryPeersForModule (char *name)
     {
       m_is_querying_peers = false;
       m_is_querying_peers_idx = 0;
+
+      if (m_peer_module_exec_query_state == 1)
+        {
+          m_has_module_exec_result = false;
+          m_peer_module_exec_query_state = 2;
+        }
       return;
     }
 
@@ -439,6 +456,63 @@ CustomApp::HandleRead (Ptr<Socket> socket)
   Address from;
   Address localAddress;
 
+  // One means that the query is still running
+  if (m_peer_module_exec_query_state == 1)
+    {
+
+      Simulator::Schedule (MilliSeconds (5), &CustomApp::HandleRead, this, socket);
+      return;
+    }
+  // 2 means if has finished running
+  else if (m_peer_module_exec_query_state == 2)
+    {
+      if (m_has_module_exec_result)
+        {
+          auto response = std::string ("r;");
+          response.append (m_query_peers_func_name);
+          response.append (";");
+          response.append (std::to_string (m_module_exec_result));
+          response.append (";");
+
+          auto response_str = response.c_str ();
+          auto resp_len = strlen (response_str);
+
+          NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds ()
+                                    << " SEND_PACKET_EXECUTE_MODULE_RESULT_FROM_PEER "
+                                    << response_str);
+
+          auto p = Create<Packet> ((uint8_t *) response_str, resp_len);
+          SeqTsHeader seqTs;
+          seqTs.SetSeq (m_sent);
+          p->AddHeader (seqTs);
+          socket->SendTo (p, 0, from);
+
+          // Cleanup
+          m_has_module_exec_result = false;
+        }
+      else
+        {
+          auto response = std::string ("n;");
+          response.append (m_query_peers_func_name);
+          response.append (";");
+
+          auto response_str = response.c_str ();
+          auto resp_len = strlen (response_str);
+
+          auto p = Create<Packet> ((uint8_t *) response_str, resp_len);
+          SeqTsHeader seqTs;
+          seqTs.SetSeq (m_sent);
+          p->AddHeader (seqTs);
+          socket->SendTo (p, 0, from);
+
+          NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+                                    << "SENT_PACKET_PEER_MODULE_QUERY_NOT_FOUND");
+        }
+
+      m_peer_module_exec_query_state = 0;
+      return;
+    }
+
   while ((packet = socket->RecvFrom (from)))
     {
       socket->GetSockName (localAddress);
@@ -451,7 +525,7 @@ CustomApp::HandleRead (Ptr<Socket> socket)
           packet->RemoveHeader (seqTs);
           // uint32_t currentSequenceNumber = seqTs.GetSeq ();
 
-          auto resp = HandlePeerPacket (packet);
+          auto resp = HandlePeerPacket (packet, socket);
 
           if (resp->GetSize () > 0)
             {
@@ -469,7 +543,7 @@ CustomApp::HandleRead (Ptr<Socket> socket)
 }
 
 Ptr<Packet>
-CustomApp::HandlePeerPacket (Ptr<Packet> packet)
+CustomApp::HandlePeerPacket (Ptr<Packet> packet, Ptr<Socket> socket)
 {
   NS_LOG_FUNCTION (this);
 
@@ -579,31 +653,9 @@ CustomApp::HandlePeerPacket (Ptr<Packet> packet)
           }
         else
           {
+            m_peer_module_exec_query_state = 1;
             QueryPeersForModule ((char *) tokens[1].c_str ());
-            // // Module not found, query peer modules for module
-            // for (size_t i = 0; i < m_peerAddresses.size (); i++)
-            //   {
-
-            //     QueryPeersForModule ((char *) tokens[1].c_str (), func);
-            //     /* code */
-            //   }
-            auto response = std::string ("n;");
-            response.append (tokens[1]);
-            response.append (";");
-
-            auto response_str = response.c_str ();
-            auto resp_len = strlen (response_str);
-
-            auto p = Create<Packet> ((uint8_t *) response_str, resp_len);
-            SeqTsHeader seqTs;
-            seqTs.SetSeq (m_sent);
-            p->AddHeader (seqTs);
-
-            NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
-                                      << "SENT_PACKET_PEER_MODULE_QUERY_NOT_FOUND"
-                                      << " " << response_str);
-
-            return p;
+            Simulator::Schedule (MilliSeconds (5), &CustomApp::HandleRead, this, socket);
           }
         break;
       }
