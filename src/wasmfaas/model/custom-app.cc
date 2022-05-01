@@ -269,9 +269,12 @@ CustomApp::QueryPeersForModule (char *name)
 
   m_is_querying_peers = true;
 
-  NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
-                            << "INIT_QUERY_PEERS_FOR_MODULE " << name << " "
-                            << " ");
+  if (m_is_querying_peers_idx == 0)
+    {
+      NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+                                << "INIT_QUERY_PEERS_FOR_MODULE " << name << " "
+                                << " ");
+    }
 
   std::string s;
   s.append ("e")
@@ -485,7 +488,7 @@ CustomApp::HandleRead (Ptr<Socket> socket)
           SeqTsHeader seqTs;
           seqTs.SetSeq (m_sent);
           p->AddHeader (seqTs);
-          socket->SendTo (p, 0, from);
+          socket->SendTo (p, 0, m_original_module_requester);
 
           // Cleanup
           m_has_module_exec_result = false;
@@ -503,7 +506,7 @@ CustomApp::HandleRead (Ptr<Socket> socket)
           SeqTsHeader seqTs;
           seqTs.SetSeq (m_sent);
           p->AddHeader (seqTs);
-          socket->SendTo (p, 0, from);
+          socket->SendTo (p, 0, m_original_module_requester);
 
           NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
                                     << "SENT_PACKET_PEER_MODULE_QUERY_NOT_FOUND");
@@ -518,6 +521,7 @@ CustomApp::HandleRead (Ptr<Socket> socket)
       socket->GetSockName (localAddress);
       m_rxTrace (packet);
       m_rxTraceWithAddresses (packet, from, localAddress);
+      m_original_module_requester = from;
       if (packet->GetSize () > 0)
         {
           //   uint32_t receivedSize = packet->GetSize ();
@@ -525,7 +529,7 @@ CustomApp::HandleRead (Ptr<Socket> socket)
           packet->RemoveHeader (seqTs);
           // uint32_t currentSequenceNumber = seqTs.GetSeq ();
 
-          auto resp = HandlePeerPacket (packet, socket);
+          auto resp = HandlePeerPacket (packet, socket, from);
 
           if (resp->GetSize () > 0)
             {
@@ -543,7 +547,7 @@ CustomApp::HandleRead (Ptr<Socket> socket)
 }
 
 Ptr<Packet>
-CustomApp::HandlePeerPacket (Ptr<Packet> packet, Ptr<Socket> socket)
+CustomApp::HandlePeerPacket (Ptr<Packet> packet, Ptr<Socket> socket, Address from)
 {
   NS_LOG_FUNCTION (this);
 

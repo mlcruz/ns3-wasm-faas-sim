@@ -119,7 +119,7 @@ private:
    */
   void HandleRead (Ptr<Socket> socket);
   void QueryPeersCallback (Ptr<Socket> socket);
-  Ptr<Packet> HandlePeerPacket (Ptr<Packet> packet, Ptr<Socket> socket);
+  Ptr<Packet> HandlePeerPacket (Ptr<Packet> packet, Ptr<Socket> socket, Address from);
   void
   resolveTag (char c)
   {
@@ -138,6 +138,7 @@ private:
   std::vector<InetSocketAddress> m_peers_queried;
   std::string m_query_peers_func_name;
   std::vector<int32_t> m_query_peers_func_args;
+  Address m_original_module_requester;
 
   u_int32_t m_peer_module_exec_query_state;
   bool m_has_module_exec_result;
