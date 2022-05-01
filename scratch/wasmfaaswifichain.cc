@@ -99,9 +99,8 @@ main (int argc, char *argv[])
   MobilityHelper mobility;
 
   // Randomly move mobileNodes
-
   mobility.SetPositionAllocator ("ns3::GridPositionAllocator", "MinX", DoubleValue (0.0), "MinY",
-                                 DoubleValue (0.0), "DeltaX", DoubleValue (10.0), "DeltaY",
+                                 DoubleValue (0.0), "DeltaX", DoubleValue (15.0), "DeltaY",
                                  DoubleValue (10.0), "GridWidth", UintegerValue (4), "LayoutType",
                                  StringValue ("RowFirst"));
 
@@ -177,59 +176,39 @@ main (int argc, char *argv[])
   p2pServerNode->RegisterNode (p2pinterfaces.GetAddress (1), 3000);
   wifiApNodeServer->RegisterNode (p2pinterfaces.GetAddress (0), 3000);
 
-  idx = 0;
-  // Register wifi nodes with each other and ap node
-  for (auto i = wifiMobileNodes.Begin (); i != wifiMobileNodes.End (); ++i)
-    {
-      auto jIdx = 0;
-      auto node = (*i);
-      auto nodeWasmRuntime = node->GetApplication (0)->GetObject<CustomApp> ();
+  // Register node 0 with AP
+  wifiMobileNodes.Get (0)->GetApplication (0)->GetObject<CustomApp> ()->RegisterNode (
+      apInterface.GetAddress (0), 3000);
 
-      if (idx == 0)
-        {
-          nodeWasmRuntime->RegisterNode (apInterface.GetAddress (0), 3000);
-        }
-      for (auto j = wifiMobileNodes.Begin (); j != wifiMobileNodes.End (); ++j)
-        {
-          if (idx + 1 == jIdx)
-            {
-              nodeWasmRuntime->RegisterNode (wifiInterfaces.GetAddress (jIdx), 3000);
-            }
-          jIdx++;
-        }
-      idx++;
-    }
+  // Register Node 0 <-> 1
+  wifiMobileNodes.Get (1)->GetApplication (0)->GetObject<CustomApp> ()->RegisterNode (
+      wifiInterfaces.GetAddress (0), 3000);
+
+  wifiMobileNodes.Get (0)->GetApplication (0)->GetObject<CustomApp> ()->RegisterNode (
+      wifiInterfaces.GetAddress (1), 3000);
+
+  // Register Node 1 <-> 2
+  wifiMobileNodes.Get (1)->GetApplication (0)->GetObject<CustomApp> ()->RegisterNode (
+      wifiInterfaces.GetAddress (2), 3000);
+
+  wifiMobileNodes.Get (2)->GetApplication (0)->GetObject<CustomApp> ()->RegisterNode (
+      wifiInterfaces.GetAddress (1), 3000);
 
   auto wifiNode0 = wifiMobileNodes.Get (0)->GetApplication (0)->GetObject<CustomApp> ();
   auto wifiNode1 = wifiMobileNodes.Get (1)->GetApplication (0)->GetObject<CustomApp> ();
   auto wifiNode2 = wifiMobileNodes.Get (2)->GetApplication (0)->GetObject<CustomApp> ();
 
-  Simulator::Schedule (Seconds (2), &CustomApp::ExecuteModule, wifiNode0, (char *) "sum",
+  Simulator::Schedule (Seconds (2), &CustomApp::ExecuteModule, wifiNode2, (char *) "sum",
                        (char *) "sum", 10, 10);
 
-  Simulator::Schedule (Seconds (4), &CustomApp::ExecuteModule, wifiNode1, (char *) "div",
-                       (char *) "div", 100, 100);
+  Simulator::Schedule (Seconds (3), &CustomApp::ExecuteModule, wifiNode0, (char *) "sum",
+                       (char *) "sum", 20, 20);
+
+  Simulator::Schedule (Seconds (4), &CustomApp::ExecuteModule, wifiNode1, (char *) "sum",
+                       (char *) "sum", 30, 30);
 
   Simulator::Schedule (Seconds (5), &CustomApp::ExecuteModule, wifiNode2, (char *) "sum",
-                       (char *) "sum", 100, 5);
-
-  Simulator::Schedule (Seconds (6), &CustomApp::ExecuteModule, wifiNode0, (char *) "div",
-                       (char *) "div", 10, 10);
-
-  Simulator::Schedule (Seconds (7), &CustomApp::ExecuteModule, wifiNode1, (char *) "sum",
-                       (char *) "sum", 100, 100);
-
-  Simulator::Schedule (Seconds (8), &CustomApp::ExecuteModule, wifiNode2, (char *) "div",
-                       (char *) "div", 100, 5);
-
-  Simulator::Schedule (Seconds (9), &CustomApp::ExecuteModule, wifiNode0, (char *) "div",
-                       (char *) "div", 10, 10);
-
-  Simulator::Schedule (Seconds (10), &CustomApp::ExecuteModule, wifiNode1, (char *) "sum",
-                       (char *) "sum", 100, 100);
-
-  Simulator::Schedule (Seconds (11), &CustomApp::ExecuteModule, wifiNode2, (char *) "div",
-                       (char *) "div", 100, 5);
+                       (char *) "sum", 40, 40);
 
   std::cout << "[Main] " << std::endl;
   serverApps.Start (Seconds (1.0));
