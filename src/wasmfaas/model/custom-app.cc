@@ -86,6 +86,7 @@ CustomApp::CustomApp () : m_lossCounter (0)
   m_has_module_exec_result = false;
   m_peers_queried = std::vector<InetSocketAddress> ();
   m_is_waiting_for_module_load = false;
+  m_microseconds_eventloop_interval = 5;
 }
 
 CustomApp::~CustomApp ()
@@ -168,7 +169,7 @@ CustomApp::QueryPeersCallback (Ptr<Socket> socket)
           if (strData[0] == 'r')
             {
 
-              NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds ()
+              NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetMilliSeconds ()
                                         << " RECEIVED_PACKET_EXECUTE_MODULE_RESULT  "
                                         << InetSocketAddress::ConvertFrom (from).GetIpv4 () << " "
                                         << strData);
@@ -195,7 +196,7 @@ CustomApp::QueryPeersCallback (Ptr<Socket> socket)
               auto loadRequestStr = loadRequest.c_str ();
               auto resp_len = strlen (loadRequestStr);
 
-              NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds ()
+              NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetMilliSeconds ()
                                         << " SEND_PACKET_MODULE_LOAD_REQUEST "
                                         << InetSocketAddress::ConvertFrom (from).GetIpv4 () << " "
                                         << loadRequestStr);
@@ -236,7 +237,7 @@ CustomApp::QueryPeersCallback (Ptr<Socket> socket)
 
               tokens.push_back (s.substr (startPos));
 
-              NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds ()
+              NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetMilliSeconds ()
                                         << " RECEIVED_PACKET_MODULE_LOAD_RESULT "
                                         << InetSocketAddress::ConvertFrom (from).GetIpv4 () << " "
                                         << tokens[1] << " " << s.size ());
@@ -246,7 +247,7 @@ CustomApp::QueryPeersCallback (Ptr<Socket> socket)
                   register_module (m_runtime_id, tokens[1].c_str (), tokens[2].c_str ());
                   m_is_waiting_for_module_load = false;
 
-                  NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds ()
+                  NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetMilliSeconds ()
                                             << " REGISTERED MODULE "
                                             << InetSocketAddress::ConvertFrom (from).GetIpv4 ()
                                             << " " << tokens[1]);
@@ -266,7 +267,8 @@ CustomApp::QueryPeersForModule (char *name)
   NS_LOG_FUNCTION (this);
   if (m_is_querying_peers)
     {
-      Simulator::Schedule (MilliSeconds (5), &CustomApp::QueryPeersForModule, this, name);
+      Simulator::Schedule (MicroSeconds (m_microseconds_eventloop_interval),
+                           &CustomApp::QueryPeersForModule, this, name);
       return;
     }
 
@@ -274,7 +276,7 @@ CustomApp::QueryPeersForModule (char *name)
 
   if (m_is_querying_peers_idx == 0)
     {
-      NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+      NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetMilliSeconds () << " "
                                 << "INIT_QUERY_PEERS_FOR_MODULE " << name << " "
                                 << " ");
     }
@@ -331,7 +333,7 @@ CustomApp::QueryPeersForModule (char *name)
   seqTs.SetSeq (m_sent);
   p->AddHeader (seqTs);
 
-  NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+  NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetMilliSeconds () << " "
                             << "SEND_PACKET_EXECUTE_MODULE_REQUEST "
                             << InetSocketAddress::ConvertFrom (peer).GetIpv4 () << " " << data);
 
@@ -339,7 +341,8 @@ CustomApp::QueryPeersForModule (char *name)
   m_peers_queried.push_back (peer);
   m_is_querying_peers_idx++;
   m_sent++;
-  Simulator::Schedule (MilliSeconds (5), &CustomApp::QueryPeersForModule, this, name);
+  Simulator::Schedule (MicroSeconds (m_microseconds_eventloop_interval),
+                       &CustomApp::QueryPeersForModule, this, name);
   outSocket->SetRecvCallback (MakeCallback (&CustomApp::QueryPeersCallback, this));
   //}
 }
@@ -351,7 +354,7 @@ CustomApp::RegisterNode (Ipv4Address address, uint16_t port)
 
   m_peerAddresses.push_back (InetSocketAddress (address, port));
 
-  NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+  NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetMilliSeconds () << " "
                             << "REGISTER_NODE " << address << ":" << port);
 }
 
@@ -403,7 +406,7 @@ CustomApp::RegisterWasmModule (char *name, char *data_base64)
   NS_LOG_FUNCTION (this);
   InitRuntime ();
 
-  NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+  NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetMilliSeconds () << " "
                             << "REGISTER_MODULE " << name);
   register_module (m_runtime_id, name, data_base64);
 }
@@ -413,7 +416,7 @@ CustomApp::ExecuteModule (char *module_name, char *func_name, int32_t arg1, int3
 {
   NS_LOG_FUNCTION (this);
 
-  NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+  NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetMilliSeconds () << " "
                             << "INIT_EXECUTE_MODULE_REQUEST " << module_name << " " << func_name
                             << " " << arg1 << " " << arg2);
 
@@ -441,7 +444,7 @@ CustomApp::ExecuteModule (char *module_name, char *func_name, int32_t arg1, int3
 
       auto result = execute_module (m_runtime_id, module_name, func);
 
-      NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+      NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetMilliSeconds () << " "
                                 << "EXECUTE_MODULE_REQUEST_CACHE_RESULT " << module_name << " "
                                 << func_name << " " << arg1 << " " << arg2 << " " << result);
       return result;
@@ -466,7 +469,8 @@ CustomApp::HandleRead (Ptr<Socket> socket)
   if (m_peer_module_exec_query_state == 1)
     {
 
-      Simulator::Schedule (MilliSeconds (5), &CustomApp::HandleRead, this, socket);
+      Simulator::Schedule (MicroSeconds (m_microseconds_eventloop_interval), &CustomApp::HandleRead,
+                           this, socket);
       return;
     }
   // 2 means if has finished running
@@ -477,7 +481,8 @@ CustomApp::HandleRead (Ptr<Socket> socket)
 
           if (m_is_waiting_for_module_load)
             {
-              Simulator::Schedule (MilliSeconds (5), &CustomApp::HandleRead, this, socket);
+              Simulator::Schedule (MicroSeconds (m_microseconds_eventloop_interval),
+                                   &CustomApp::HandleRead, this, socket);
               return;
             }
           auto response = std::string ("r;");
@@ -489,7 +494,7 @@ CustomApp::HandleRead (Ptr<Socket> socket)
           auto response_str = response.c_str ();
           auto resp_len = strlen (response_str);
 
-          NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds ()
+          NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetMilliSeconds ()
                                     << " SEND_PACKET_EXECUTE_MODULE_RESULT_FROM_PEER "
                                     << response_str);
 
@@ -516,8 +521,9 @@ CustomApp::HandleRead (Ptr<Socket> socket)
           seqTs.SetSeq (m_sent);
           p->AddHeader (seqTs);
           socket->SendTo (p, 0, m_original_module_requester);
+          m_sent++;
 
-          NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+          NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetMilliSeconds () << " "
                                     << "SENT_PACKET_PEER_MODULE_QUERY_NOT_FOUND");
         }
 
@@ -570,7 +576,7 @@ CustomApp::HandlePeerPacket (Ptr<Packet> packet, Ptr<Socket> socket, Address fro
 
       // load module handler
       case 'l': {
-        NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+        NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetMilliSeconds () << " "
                                   << "RECEIVED_PACKET_MODULE_LOAD_REQUEST"
                                   << " " << data);
 
@@ -586,7 +592,7 @@ CustomApp::HandlePeerPacket (Ptr<Packet> packet, Ptr<Socket> socket, Address fro
         respStr.append (";");
         free_ffi_string ((char *) base64_data);
 
-        NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+        NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetMilliSeconds () << " "
                                   << "SEND_PACKET_MODULE_LOAD_RESPONSE"
                                   << " " << moduleName << " " << respStr.size ());
 
@@ -601,7 +607,7 @@ CustomApp::HandlePeerPacket (Ptr<Packet> packet, Ptr<Socket> socket, Address fro
       }
       // execute module handler
       case 'e': {
-        NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds () << " "
+        NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetMilliSeconds () << " "
                                   << "RECEIVED_PACKET_EXECUTE_MODULE_REQUEST"
                                   << " " << data);
 
@@ -655,7 +661,7 @@ CustomApp::HandlePeerPacket (Ptr<Packet> packet, Ptr<Socket> socket, Address fro
             auto response_str = response.c_str ();
             auto resp_len = strlen (response_str);
 
-            NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetNanoSeconds ()
+            NS_LOG_INFO (m_runtime_id << " " << Simulator::Now ().GetMilliSeconds ()
                                       << " SEND_PACKET_EXECUTE_MODULE_RESULT " << response_str);
 
             auto p = Create<Packet> ((uint8_t *) response_str, resp_len);
@@ -668,7 +674,8 @@ CustomApp::HandlePeerPacket (Ptr<Packet> packet, Ptr<Socket> socket, Address fro
           {
             m_peer_module_exec_query_state = 1;
             QueryPeersForModule ((char *) tokens[1].c_str ());
-            Simulator::Schedule (MilliSeconds (5), &CustomApp::HandleRead, this, socket);
+            Simulator::Schedule (MicroSeconds (m_microseconds_eventloop_interval),
+                                 &CustomApp::HandleRead, this, socket);
           }
         break;
       }

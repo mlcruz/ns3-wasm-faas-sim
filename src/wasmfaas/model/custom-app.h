@@ -135,6 +135,8 @@ private:
   u_int8_t m_is_querying_peers_idx;
   bool m_is_querying_peers;
 
+  u_int32_t m_microseconds_eventloop_interval;
+
   std::vector<InetSocketAddress> m_peers_queried;
   std::string m_query_peers_func_name;
   std::vector<int32_t> m_query_peers_func_args;

@@ -61,7 +61,7 @@ main (int argc, char *argv[])
   p2pNodes.Create (2);
   PointToPointHelper pointToPoint;
   pointToPoint.SetDeviceAttribute ("DataRate", StringValue ("100Mbps"));
-  pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
+  pointToPoint.SetChannelAttribute ("Delay", StringValue ("40ms"));
 
   NetDeviceContainer p2pdevices;
   p2pdevices = pointToPoint.Install (p2pNodes);
@@ -101,16 +101,14 @@ main (int argc, char *argv[])
   // Randomly move mobileNodes
 
   mobility.SetPositionAllocator ("ns3::GridPositionAllocator", "MinX", DoubleValue (0.0), "MinY",
-                                 DoubleValue (0.0), "DeltaX", DoubleValue (5.0), "DeltaY",
-                                 DoubleValue (10.0), "GridWidth", UintegerValue (3), "LayoutType",
+                                 DoubleValue (0.0), "DeltaX", DoubleValue (10.0), "DeltaY",
+                                 DoubleValue (10.0), "GridWidth", UintegerValue (4), "LayoutType",
                                  StringValue ("RowFirst"));
 
-  mobility.SetMobilityModel ("ns3::RandomWalk2dMobilityModel", "Bounds",
-                             RectangleValue (Rectangle (-50, 50, -50, 50)));
+  // Fixed nodes
+  mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (wifiMobileNodes);
 
-  // Fixed ap node
-  mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (wifiApNode);
 
   InternetStackHelper stack;
@@ -125,8 +123,8 @@ main (int argc, char *argv[])
 
   address.SetBase ("10.1.2.0", "255.255.255.0");
 
-  Ipv4InterfaceContainer apInterface = address.Assign (apDevices);
   Ipv4InterfaceContainer wifiInterfaces = address.Assign (mobileDevices);
+  Ipv4InterfaceContainer apInterface = address.Assign (apDevices);
 
   Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
@@ -137,6 +135,7 @@ main (int argc, char *argv[])
 
   auto idx = 0;
   std::cout << "[NodeIps] " << std::endl;
+
   for (auto i = p2pNodes.Begin (); i != p2pNodes.End (); ++i)
     {
       auto node = (*i);
@@ -152,7 +151,6 @@ main (int argc, char *argv[])
   // AP IP
   std::cout << p2pNodes.Get (1)->GetApplication (0)->GetObject<CustomApp> ()->GetNodeId () << " "
             << apInterface.GetAddress (0) << std::endl;
-
   idx = 0;
   for (auto i = wifiMobileNodes.Begin (); i != wifiMobileNodes.End (); ++i)
     {
@@ -186,12 +184,16 @@ main (int argc, char *argv[])
       auto jIdx = 0;
       auto node = (*i);
       auto nodeWasmRuntime = node->GetApplication (0)->GetObject<CustomApp> ();
-      nodeWasmRuntime->RegisterNode (apInterface.GetAddress (0), 3000);
+
       for (auto j = wifiMobileNodes.Begin (); j != wifiMobileNodes.End (); ++j)
         {
           if (i != j)
             {
               nodeWasmRuntime->RegisterNode (wifiInterfaces.GetAddress (jIdx), 3000);
+            }
+          else
+            {
+              nodeWasmRuntime->RegisterNode (apInterface.GetAddress (0), 3000);
             }
           jIdx++;
         }
@@ -199,22 +201,39 @@ main (int argc, char *argv[])
     }
 
   auto wifiNode0 = wifiMobileNodes.Get (0)->GetApplication (0)->GetObject<CustomApp> ();
+  auto wifiNode1 = wifiMobileNodes.Get (1)->GetApplication (0)->GetObject<CustomApp> ();
+  auto wifiNode2 = wifiMobileNodes.Get (2)->GetApplication (0)->GetObject<CustomApp> ();
 
-  Simulator::Schedule (Seconds (2), &CustomApp::ExecuteModule, wifiNode0, (char *) "div",
+  Simulator::Schedule (Seconds (2), &CustomApp::ExecuteModule, wifiNode0, (char *) "sum",
+                       (char *) "sum", 10, 10);
+
+  Simulator::Schedule (Seconds (4), &CustomApp::ExecuteModule, wifiNode1, (char *) "div",
+                       (char *) "div", 100, 100);
+
+  Simulator::Schedule (Seconds (5), &CustomApp::ExecuteModule, wifiNode2, (char *) "sum",
+                       (char *) "sum", 100, 5);
+
+  Simulator::Schedule (Seconds (6), &CustomApp::ExecuteModule, wifiNode0, (char *) "div",
                        (char *) "div", 10, 10);
 
-  // Simulator::Schedule (Seconds (4), &CustomApp::ExecuteModule, wifiApNodeServer, (char *) "sum",
-  //                      (char *) "sum", 100, 100);
+  Simulator::Schedule (Seconds (7), &CustomApp::ExecuteModule, wifiNode1, (char *) "sum",
+                       (char *) "sum", 100, 100);
 
-  // Simulator::Schedule (Seconds (5), &CustomApp::ExecuteModule, wifiApNodeServer, (char *) "div",
-  //                      (char *) "div", 100, 5);
+  Simulator::Schedule (Seconds (8), &CustomApp::ExecuteModule, wifiNode2, (char *) "div",
+                       (char *) "div", 100, 5);
 
-  // Simulator::Schedule (Seconds (6), &CustomApp::ExecuteModule, wifiApNodeServer, (char *) "sum",
-  //                      (char *) "sum", 100, 100);
+  Simulator::Schedule (Seconds (9), &CustomApp::ExecuteModule, wifiNode0, (char *) "div",
+                       (char *) "div", 10, 10);
+
+  Simulator::Schedule (Seconds (10), &CustomApp::ExecuteModule, wifiNode1, (char *) "sum",
+                       (char *) "sum", 100, 100);
+
+  Simulator::Schedule (Seconds (11), &CustomApp::ExecuteModule, wifiNode2, (char *) "div",
+                       (char *) "div", 100, 5);
 
   std::cout << "[Main] " << std::endl;
   serverApps.Start (Seconds (1.0));
-  serverApps.Stop (Seconds (10.0));
+  serverApps.Stop (Seconds (20.0));
 
   Simulator::Stop (Seconds (10.0));
   Simulator::Run ();
